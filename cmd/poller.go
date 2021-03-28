@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/ajdust/ipsync/pkg"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -42,5 +43,10 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("Got status code: %d\n", resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Response was %d: %s\n", resp.StatusCode, body)
 }

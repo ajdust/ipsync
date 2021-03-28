@@ -29,18 +29,18 @@ func setCachedRemoteAddr(content string) {
 	}
 }
 
-func updateRemoteAddr(next string) {
+func updateRemoteAddr(next string) error {
 	// remove port from ip:port formatted address
 	previousIP := currentRemoteAddr[:strings.LastIndex(currentRemoteAddr, ":")]
 	nextIP := next[:strings.LastIndex(next, ":")]
 	_, err := exec.Command(updateConfigScriptPath, fmt.Sprintf("--old=%s", previousIP), fmt.Sprintf("--new=%s", nextIP)).Output()
 	if err != nil {
-		fmt.Printf("failed to run script: %s\n", err)
-		return
+		return fmt.Errorf("failed to run script: %w", err)
 	}
 
 	setCachedRemoteAddr(next)
 	currentRemoteAddr = next
+	return nil
 }
 
 func ping(w http.ResponseWriter, req *http.Request) {
@@ -50,7 +50,12 @@ func ping(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if req.RemoteAddr != currentRemoteAddr {
-		updateRemoteAddr(req.RemoteAddr)
+		err := updateRemoteAddr(req.RemoteAddr)
+		if err != nil {
+			w.WriteHeader(500)
+			_, _ = fmt.Fprintf(w, fmt.Sprintf("%s", err))
+			return
+		}
 	}
 
 	_, err := fmt.Fprintf(w, req.RemoteAddr)
@@ -60,11 +65,12 @@ func ping(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	if len(os.Args) != 4 {
+	if len(os.Args) != 5 {
 		fmt.Println(`Three arguments required:
 			[path to current IP in text file]
 			[path to script to run when IP changes]
-			[path to base64-encoded DER of EC public key]`)
+			[path to base64-encoded DER of EC public key]
+			[address to listen on]`)
 		return
 	}
 
@@ -92,11 +98,12 @@ func main() {
 		return
 	}
 
+	listenOn := os.Args[4]
 	verifier = vfr
 	currentRemoteAddr = getCachedRemoteAddr()
 
 	http.HandleFunc("/ping", ping)
-	err = http.ListenAndServe(":8090", nil)
+	err = http.ListenAndServe(listenOn, nil)
 	if err != nil {
 		panic(err)
 	}

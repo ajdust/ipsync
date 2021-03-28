@@ -1,0 +1,16 @@
+[Unit]
+Description=ipsync-listener
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=hnstar-proxy
+Environment="IPSYNC=/home/hnstar-proxy/ipsync"
+ExecStart=/home/hnstar-proxy/ipsync/listener ${IPSYNC}/ip.txt ${IPSYNC}/update-envoy.sh ${IPSYNC}/public.key 0.0.0.0:8090
+LimitNOFILE=100
+
+[Install]
+WantedBy=multi-user.target

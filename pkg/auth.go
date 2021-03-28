@@ -13,7 +13,20 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 )
+
+// Remove all white space and returns from a string
+func removeSpace(str string) string {
+	var b strings.Builder
+	b.Grow(len(str))
+	for _, ch := range str {
+		if !unicode.IsSpace(ch) {
+			b.WriteRune(ch)
+		}
+	}
+	return b.String()
+}
 
 func hash(b []byte) []byte {
 	h := sha512.New()
@@ -52,9 +65,10 @@ func CreateVerifierFromPath(pubKeyPath string) (Verifier, error) {
 	}
 
 	content := string(read)
+	content = strings.TrimSpace(content)
 	content = strings.TrimPrefix(content, "-----BEGIN PUBLIC KEY-----")
 	content = strings.TrimSuffix(content, "-----END PUBLIC KEY-----")
-	content = strings.TrimSpace(content)
+	content = removeSpace(content)
 
 	decodePubKey, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
@@ -120,9 +134,10 @@ func CreateSignerFromPath(privKeyPath string) (Signer, error) {
 	}
 
 	content := string(read)
+	content = strings.TrimSpace(content)
 	content = strings.TrimPrefix(content, "-----BEGIN EC PRIVATE KEY-----")
 	content = strings.TrimSuffix(content, "-----END EC PRIVATE KEY-----")
-	content = strings.TrimSpace(content)
+	content = removeSpace(content)
 
 	decodePrivateKey, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
@@ -157,7 +172,7 @@ func (signer Signer) Sign(message string) (string, error) {
 // It will return an error if the system's secure random
 // number generator fails to function correctly, in which
 // case the caller should not continue.
-func GenerateRandomString(n int) (string, error) {
+func generateRandomString(n int) (string, error) {
 	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
 	ret := make([]byte, n)
 	for i := 0; i < n; i++ {
@@ -171,10 +186,10 @@ func GenerateRandomString(n int) (string, error) {
 	return string(ret), nil
 }
 
-// Create a typical signature with an ISO8601 datetime and random string
-func (signer Signer) CreateTypicalSignature(now time.Time) (string, string, error) {
+// Create a message and signature with an ISO8601 datetime and random string
+func (signer Signer) CreateTimeSignature(now time.Time) (string, string, error) {
 	formatted := now.Format("20060102T150405")
-	random, err := GenerateRandomString(15)
+	random, err := generateRandomString(15)
 	if err != nil {
 		return "", "", err
 	}

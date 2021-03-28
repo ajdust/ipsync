@@ -62,9 +62,9 @@ func ping(w http.ResponseWriter, req *http.Request) {
 func main() {
 	if len(os.Args) != 4 {
 		fmt.Println(`Three arguments required:
-			[path to config containing IP]
 			[path to current IP in text file]
-			[path to base64-encoded public key DER]`)
+			[path to script to run when IP changes]
+			[path to base64-encoded DER of EC public key]`)
 		return
 	}
 

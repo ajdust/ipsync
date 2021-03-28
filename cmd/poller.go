@@ -25,7 +25,7 @@ func main() {
 		panic(err)
 	}
 
-	message, signature, err := signer.CreateTypicalSignature(time.Now().UTC())
+	message, signature, err := signer.CreateTimeSignature(time.Now().UTC())
 	if err != nil {
 		panic(err)
 	}
@@ -37,8 +37,10 @@ func main() {
 	}
 
 	req.Header.Set("Authentication", auth)
-	_, err = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("Got status code: %d\n", resp.StatusCode)
 }

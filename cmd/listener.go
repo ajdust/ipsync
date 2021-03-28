@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ajdust/ipsync/auth"
+	"github.com/ajdust/ipsync/pkg"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -11,7 +11,7 @@ import (
 )
 
 var cachedRemoteAddrPath, currentRemoteAddr, updateConfigScriptPath string
-var verifier auth.Verifier
+var verifier pkg.Verifier
 
 func getCachedRemoteAddr() string {
 	read, err := ioutil.ReadFile(cachedRemoteAddrPath)
@@ -86,7 +86,7 @@ func main() {
 		return
 	}
 
-	vfr, err := auth.CreateVerifierFromPath(pubKeyPath)
+	vfr, err := pkg.CreateVerifierFromPath(pubKeyPath)
 	if err != nil {
 		fmt.Printf("Invalid public key path %s: %s", pubKeyPath, err)
 		return

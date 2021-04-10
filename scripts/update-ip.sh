@@ -19,5 +19,5 @@ esac
 done
 
 echo "Updating ./config.yaml ${OLD} -> ${NEW}"
-sed -i "s/${OLD}/${NEW}/g" ./config.yaml
-curl -X POST 127.0.0.1:8001/quitquitquit || true
+sed -i "s/${OLD}/${NEW}/g" ./config.txt
+# curl -X POST 127.0.0.1:8001/quitquitquit || true # restart server with updated IP

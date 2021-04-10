@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
-var cachedRemoteAddrPath, currentRemoteAddr, updateConfigScriptPath string
+var cachedRemoteAddrPath, updateConfigScriptPath string
 var verifier pkg.Verifier
+var ipRegex = regexp.MustCompile(`^(?:[0-9]{1,3}\.){3}[0-9]{1,3}`)
 
 func getCachedRemoteAddr() string {
 	read, err := ioutil.ReadFile(cachedRemoteAddrPath)
@@ -29,17 +31,23 @@ func setCachedRemoteAddr(content string) {
 	}
 }
 
-func updateRemoteAddr(next string) error {
-	// remove port from ip:port formatted address
-	previousIP := currentRemoteAddr[:strings.LastIndex(currentRemoteAddr, ":")]
-	nextIP := next[:strings.LastIndex(next, ":")]
-	_, err := exec.Command(updateConfigScriptPath, fmt.Sprintf("--old=%s", previousIP), fmt.Sprintf("--new=%s", nextIP)).Output()
+func trimIP(s string) string {
+	matches := ipRegex.FindAllString(strings.TrimSpace(s), -1)
+	for _, v := range matches {
+		return v
+	}
+
+	return ""
+}
+
+func updateConfig(previousIP, nextIP string) error {
+	_, err := exec.Command(updateConfigScriptPath,
+		fmt.Sprintf("--old=%s", previousIP),
+		fmt.Sprintf("--new=%s", nextIP)).Output()
 	if err != nil {
 		return fmt.Errorf("failed to run script: %w", err)
 	}
 
-	setCachedRemoteAddr(next)
-	currentRemoteAddr = next
 	return nil
 }
 
@@ -49,13 +57,18 @@ func ping(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.RemoteAddr != currentRemoteAddr {
-		err := updateRemoteAddr(req.RemoteAddr)
+	current := trimIP(getCachedRemoteAddr())
+	next := trimIP(req.RemoteAddr)
+
+	if current != next {
+		err := updateConfig(current, next)
 		if err != nil {
 			w.WriteHeader(500)
 			_, _ = fmt.Fprintf(w, fmt.Sprintf("%s", err))
 			return
 		}
+
+		setCachedRemoteAddr(next)
 	}
 
 	_, err := fmt.Fprintf(w, req.RemoteAddr)
@@ -100,7 +113,6 @@ func main() {
 
 	listenOn := os.Args[4]
 	verifier = vfr
-	currentRemoteAddr = getCachedRemoteAddr()
 
 	http.HandleFunc("/ping", ping)
 	err = http.ListenAndServe(listenOn, nil)

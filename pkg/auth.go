@@ -2,9 +2,9 @@ package pkg
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha512"
 	"crypto/x509"
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode"
 )
+
+const messageSize = 50
 
 // Remove all white space and returns from a string
 func removeSpace(str string) string {
@@ -53,7 +55,7 @@ func verifySignature(pubKey *ecdsa.PublicKey, message, b64sig string) error {
 	return nil
 }
 
-// Verifies ECDSA signatures with a public key
+// Verifier verifies ECDSA signatures with a public key
 type Verifier struct {
 	pubKey *ecdsa.PublicKey
 }
@@ -88,7 +90,7 @@ func CreateVerifierFromPath(pubKeyPath string) (Verifier, error) {
 	return Verifier{pubKey}, nil
 }
 
-// Authenticate a request. The Authentication header is expected
+// Verify authenticates a request. The Authentication header is expected
 // to contain the message and signature. The public key is shared beforehand.
 // The message is the ISO8601 UTC datetime followed by 15 random characters.
 func (verifier Verifier) Verify(req *http.Request) bool {
@@ -114,8 +116,8 @@ func (verifier Verifier) Verify(req *http.Request) bool {
 		return false
 	}
 
-	message := auth[:30]
-	signature := auth[30:]
+	message := auth[:messageSize]
+	signature := auth[messageSize:]
 	if err := verifySignature(verifier.pubKey, message, signature); err != nil {
 		return false
 	}
@@ -156,7 +158,7 @@ func CreateSignerFromPath(privKeyPath string) (Signer, error) {
 	return Signer{privateKey}, nil
 }
 
-// Signs a string and returns a base64 encoded signature
+// Sign signs a string and returns a base64 encoded signature
 func (signer Signer) Sign(message string) (string, error) {
 	rdr := strings.NewReader(message)
 	hashed := hash([]byte(message))
@@ -168,7 +170,7 @@ func (signer Signer) Sign(message string) (string, error) {
 	return base64.StdEncoding.EncodeToString(der), nil
 }
 
-// GenerateRandomString returns a securely generated random string.
+// generateRandomString returns a securely generated random string.
 // It will return an error if the system's secure random
 // number generator fails to function correctly, in which
 // case the caller should not continue.
@@ -186,10 +188,10 @@ func generateRandomString(n int) (string, error) {
 	return string(ret), nil
 }
 
-// Create a message and signature with an ISO8601 datetime and random string
+// CreateTimeSignature creates a message and signature with a datetime and random string
 func (signer Signer) CreateTimeSignature(now time.Time) (string, string, error) {
 	formatted := now.Format("20060102T150405")
-	random, err := generateRandomString(15)
+	random, err := generateRandomString(messageSize - 15)
 	if err != nil {
 		return "", "", err
 	}
@@ -199,7 +201,7 @@ func (signer Signer) CreateTimeSignature(now time.Time) (string, string, error) 
 	hashed := hash([]byte(message))
 	r, s, err := ecdsa.Sign(messageRdr, signer.privateKey, hashed)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to CreateTimeSignature: %w", err)
 	}
 
 	der := append(r.Bytes(), s.Bytes()...)
